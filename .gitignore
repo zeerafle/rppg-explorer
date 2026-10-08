@@ -1,0 +1,11 @@
+node_modules
+dist
+data-build/.tmp
+data-build/*.log
+tests/shots
+
+# Sweet Search local index
+.sweet-search/
+
+# Real-face clips and traces (UBFC-rPPG); rebuild with data-build/build_data.py
+public/data/
