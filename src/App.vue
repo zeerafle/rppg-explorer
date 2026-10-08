@@ -13,6 +13,7 @@ const MODULES = [
   { id: 'pos', n: 3, title: 'Colour to pulse', hint: 'POS and CHROM, step by step', c: defineAsyncComponent(() => import('./modules/Pos.vue')) },
   { id: 'hr', n: 4, title: 'Pulse to heart rate', hint: 'The spectrum and its peak', c: defineAsyncComponent(() => import('./modules/HeartRate.vue')) },
   { id: 'codec', n: 5, group: 'Compression', title: 'What compression does', hint: 'Keyframes, quantisation, bitrate', c: defineAsyncComponent(() => import('./modules/Codec.vue')) },
+  { id: 'quant', n: '5b', title: 'The quantiser, on real pictures', hint: 'What QP does to pixels, size and the pulse', c: defineAsyncComponent(() => import('./modules/Quantiser.vue')) },
   { id: 'keyframe', n: 6, title: 'The keyframe artefact', hint: 'Step by step: why the heart rate reads 60', c: defineAsyncComponent(() => import('./modules/Keyframe.vue')) },
   { id: 'results', n: 7, group: 'Wrap-up', title: 'What we found', hint: 'Results, nulls and open questions', c: defineAsyncComponent(() => import('./modules/Results.vue')) },
   { id: 'lab', n: 8, title: 'Lab', hint: 'Play with every knob at once', c: defineAsyncComponent(() => import('./modules/Lab.vue')) },

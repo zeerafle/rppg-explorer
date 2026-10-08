@@ -91,3 +91,30 @@ describe('teaching filter', () => {
     expect(Math.abs(y[100] - x[100])).toBeLessThan(1e-12)
   })
 })
+
+import { codeBlock, dct8, idct8, qstep } from '../src/lib/quant.js'
+describe('quant toy coder', () => {
+  it('DCT round-trips and step doubles every 6 QP', () => {
+    const b = Float64Array.from({ length: 64 }, (_, i) => (i * 37) % 200)
+    const r = idct8(dct8(b))
+    expect(Math.max(...Array.from(r, (v, i) => Math.abs(v - b[i])))).toBeLessThan(1e-9)
+    expect(qstep(34) / qstep(28)).toBeCloseTo(2, 9)
+  })
+  it('coarser QP gives fewer non-zero coefficients and more error', () => {
+    const b = Array.from({ length: 64 }, (_, i) => 100 + 40 * Math.sin(i / 5) + (i % 7))
+    const a = codeBlock(b, 10), z = codeBlock(b, 46)
+    expect(z.nz).toBeLessThan(a.nz)
+    expect(z.rms).toBeGreaterThan(a.rms)
+  })
+})
+
+import DEEP from '../src/lib/deep.json'
+describe('deep-model results (from the experiment report)', () => {
+  it('match FINDINGS.md headline numbers', () => {
+    expect(DEEP.results.TSCAN['800'].g60.err).toBe(2.0)
+    expect(DEEP.results.TSCAN['800'].long.err).toBe(1.3)
+    expect(DEEP.results.POS['800'].g60.err).toBe(21.3)
+    expect(DEEP.results.TSCAN['400'].g30.verdict).toBe('Fooled')
+    expect(DEEP.results.PHYSNET['800'].long.err).toBe(6.2)
+  })
+})

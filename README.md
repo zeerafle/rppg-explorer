@@ -24,7 +24,9 @@ npm test               # JS signal code vs the Python experiment code
 | 3 | Colour to pulse | Step through POS / CHROM on a 1.6 s window; add flicker and see green-only fail |
 | 4 | Pulse to heart rate | Window, Hann taper, FFT, peak; coarse vs fine frequency grid |
 | 5 | What compression does | Real keyframe positions, QP per frame, decoded-minus-original clip, 42-subject damage curve |
+| 5b | The quantiser, on real pictures | Real frame at 8 QP values (image, difference, 8x8 block rounding toy), heart-rate error per QP |
 | 6 | The keyframe artefact | Eight-step walk-through of why the estimate locks on ~60 bpm, and the partial fix |
+| 6b | (inside 6, step 8) | Do deep networks fall for it too? POS, CHROM, TS-CAN, PhysNet at 3200/800/400 kbps, from `src/lib/deep.json` |
 | 7 | What we found | Results table, QP-gate risk-coverage demo, open questions |
 | 8 | Lab | Subject x encode x algorithm x window, all at once |
 
@@ -59,6 +61,8 @@ chance) were also reproduced independently in JS.
 `npm run dev` plus `node tests/shots.mjs` (screenshots of every module) and `node tests/interact.mjs`
 (steps through the keyframe walk-through, checks video playback drives the chart) need `playwright-core`
 and a Chromium; the scripts point at `~/.cache/ms-playwright`.
+
+`src/lib/deep.json` is not video-derived: `data-build/deep_from_report.py` condenses `Proposal/experiments/deep-keyframe-2026-10-08/report.md` (42 subjects, PURE-trained TS-CAN and PhysNet). Re-run it if that report changes.
 
 ## Things to know
 

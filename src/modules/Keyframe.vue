@@ -8,6 +8,7 @@ import Scatter from '../components/Scatter.vue'
 import Stepper from '../components/Stepper.vue'
 import SyncVideos from '../components/SyncVideos.vue'
 import * as D from '../lib/dsp.js'
+import DEEP from '../lib/deep.json'
 import { HERO, MODE_COLOR, MODE_LABEL, SUBJECTS, hrTrack, loadDamage, loadEncodeVariance, loadSubject, median, periodOf, pulse, refHr, windows } from '../lib/data.js'
 
 const subs = Object.fromEntries(await Promise.all(SUBJECTS.map(async (id) => [id, await loadSubject(id)])))
@@ -192,6 +193,19 @@ const k800 = [['source', 'Uncompressed', MODE_COLOR.source], ['800k-aq1-long', '
   return { label, value: median(e), color, bad: e.filter((v) => v > 5).length / e.length }
 })
 
+// ---------- step 8b: do deep networks fall for it? (deep-keyframe-2026-10-08, 42 subjects) ----------
+const dRate = ref('800'), dMode = ref('g60')
+const DM = [['POS', 'POS (classical)', '#eb6834'], ['CHROM', 'CHROM (classical)', '#c13b7a'], ['TSCAN', 'TS-CAN (deep)', '#2a78d6'], ['PHYSNET', 'PhysNet (deep)', '#1baf7a']]
+const deepBars = computed(() => DM.flatMap(([m, label, color]) => {
+  const r = DEEP.results[m][dRate.value]
+  const base = r.long, c = r[dMode.value]
+  const broken = m === 'PHYSNET' && base.err > 5   // the report gives no verdict when the one-keyframe baseline already fails
+  return [
+    { label: `${label}: one keyframe`, value: base.err, color: `color-mix(in srgb, ${color} 45%, var(--surface-2))`, note: base.err > 5 ? 'already off by >5 without keyframes' : '' },
+    { label: `${label}: ${MODE_LABEL[dMode.value]}`, value: c.err, color, note: broken ? 'no verdict' : `${c.verdict ?? ''}${c.harm != null ? ` · ${c.harm}% on a keyframe tooth (chance ${c.chance}%)` : ''}` },
+  ]
+}))
+
 const STEPS = ['Same video', 'Colour jumps', 'A comb', 'Comb wins', 'Whole minute', 'Moves with spacing', 'Undo it?', '42 subjects']
 </script>
 
@@ -334,13 +348,28 @@ const STEPS = ['Same video', 'Colour jumps', 'A comb', 'Comb wins', 'Whole minut
         <div class="callout">
           <strong>Take-away.</strong> Same bitrate, same video, same algorithm: a keyframe every 2 s costs about {{ (k800[3].value / k800[1].value).toFixed(0) }} times the error of a single keyframe. The common low-latency "intra-refresh" setting lands in between.
         </div>
+        <h3>Do deep networks fall for it too?</h3>
+        <div class="callout">
+          <strong>In plain words.</strong> POS and CHROM are fixed recipes on the face colour. TS-CAN and PhysNet are neural networks that learned to read a pulse from video examples. Same 42 subjects, same encodes, same 10 s windows and same peak-picking. For each method the pale bar is the error with one keyframe, the solid bar the error with regular keyframes. A big jump between them means the keyframes fooled it. <b>What to do:</b> pick a bitrate and a keyframe spacing.
+        </div>
+        <div class="controls">
+          <div class="seg" role="group" aria-label="Bitrate"><button v-for="r in ['3200', '800', '400']" :key="r" :class="{ on: dRate === r }" @click="dRate = r">{{ r }} kbps</button></div>
+          <div class="seg" role="group" aria-label="Keyframe spacing"><button v-for="m in ['g30', 'g60', 'g120']" :key="m" :class="{ on: dMode === m }" @click="dMode = m">{{ MODE_LABEL[m] }}</button></div>
+        </div>
+        <CategoryBars :items="deepBars" unit=" bpm" :ref-line="{ value: 5, label: '5 bpm' }" />
+        <p class="small muted">Median absolute error over 42 subjects; deterministic single-thread encodes. Networks were trained on a different dataset (PURE) and never saw these videos. <span class="tag real">real runs</span></p>
+        <div class="callout">
+          <strong>What it shows.</strong> At 800 kbps with a keyframe every 2 s, POS and CHROM are fooled (21 and 17 bpm against 3 and 2 with one keyframe) but TS-CAN is not (2.0 against 1.3). TS-CAN is not untouchable: at 400 kbps with keyframes every 1 s its error rises from 2.8 to 16.7 bpm, though its wrong answers sit on keyframe teeth far less tightly than POS's. PhysNet already fails at 800 kbps with a single keyframe (6.2 bpm), so it cannot show the effect. <b>Why TS-CAN resists is a hypothesis, not tested:</b> it works on frame-to-frame differences and may average a one-frame jump away.
+        </div>
+
         <h3>What is solid and what is not</h3>
         <table class="t left">
           <tbody>
             <tr><td>Error grows as keyframes get closer</td><td>42 subjects (2 s vs single keyframe) + 5 subjects (1, 2, 4 s)</td></tr>
             <tr><td>The wrong answers sit on multiples of the keyframe rate</td><td>5 subjects only</td></tr>
             <tr><td>A decoder-side correction halves the error</td><td>5 subjects; did not meet the bar we set</td></tr>
-            <tr><td>Other algorithms (CHROM, deep networks), other codecs, other datasets</td><td>Not tested yet</td></tr>
+            <tr><td>CHROM is fooled like POS; TS-CAN is not at 800 kbps (breaks at 400 kbps with 1 s keyframes); PhysNet is too fragile to test</td><td>42 subjects, deterministic encodes, PURE-trained networks</td></tr>
+            <tr><td>Other codecs, other datasets, other deep models</td><td>Not tested yet</td></tr>
           </tbody>
         </table>
       </div>

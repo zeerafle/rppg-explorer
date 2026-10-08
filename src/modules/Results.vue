@@ -53,6 +53,7 @@ const dmg = [['source', 'Uncompressed'], ['1600k-aq1-long', '1600k'], ['800k-aq1
       <tbody>
         <tr><td>How much does compression hurt rPPG?</td><td style="text-align:left"><b>Answered</b></td><td style="text-align:left">Median error {{ dmg[0].v.toFixed(1) }} → {{ dmg[1].v.toFixed(1) }} → {{ dmg[3].v.toFixed(1) }} → {{ dmg[5].v.toFixed(1) }} bpm at uncompressed, 1600k, 400k, 100k (42 subjects)</td></tr>
         <tr><td>Does the hidden keyframe cycle break it?</td><td style="text-align:left"><b>Yes, strongly</b></td><td style="text-align:left">2 s keyframes: 27 bpm vs 3 bpm for one keyframe, same bitrate (42 subjects); mechanism confirmed on 5</td></tr>
+        <tr><td>Are deep networks fooled too?</td><td style="text-align:left"><b>Mostly no</b></td><td style="text-align:left">At 800k with 2 s keyframes: TS-CAN 2.0 bpm vs 1.3 with one keyframe; POS 21.3 vs 2.6, CHROM 17.4 vs 1.8. TS-CAN does break at 400k with 1 s keyframes (16.7 vs 2.8). PhysNet fails even without keyframes. 42 subjects, PURE-trained networks</td></tr>
         <tr><td>Can the decoder undo it?</td><td style="text-align:left"><b>Partly</b></td><td style="text-align:left">Roughly halves the error; misses the pre-set bar</td></tr>
         <tr><td>Does the spatial QP map hold information the pixels lost?</td><td style="text-align:left"><b>No (null)</b></td><td style="text-align:left">Adds R² ≤ 0.005 over decoded pixels (5 subjects)</td></tr>
         <tr><td>Does the codec's quantiser give a free reliability signal?</td><td style="text-align:left"><b>No (null)</b>, on still subjects</td><td style="text-align:left">+1.6 % area-under-risk, interval −0.18 to +0.63 includes 0 (42 subjects)</td></tr>
@@ -90,7 +91,7 @@ const dmg = [['source', 'Uncompressed'], ['1600k-aq1-long', '1600k'], ['800k-aq1
     <table class="t left">
       <tbody>
         <tr><td>Speech and head motion under compression</td><td style="text-align:left">A talking-face dataset with a contact sensor; rerun the same gate test and the same sweep</td></tr>
-        <tr><td>Do deep networks have the same keyframe problem?</td><td style="text-align:left">Run TS-CAN / PhysNet on the same encodes (GPU)</td></tr>
+        <tr><td>Why is TS-CAN resistant, and do other deep models (e.g. direct-regression) resist too?</td><td style="text-align:left">Test the "frame differences average the jump away" idea; add a model trained on compressed video</td></tr>
         <tr><td>How common is the bad keyframe spacing in real calls?</td><td style="text-align:left">Measure the keyframe interval of real conferencing streams; the paper's relevance depends on it</td></tr>
         <tr><td>Is it only a CBR effect?</td><td style="text-align:left">Repeat with CRF and other rate control; our result is for constant bitrate</td></tr>
         <tr><td>Was 5 subjects enough for the mechanism?</td><td style="text-align:left">Run the harmonic test on all 42 (about an hour on Kaggle CPU)</td></tr>

@@ -340,6 +340,71 @@ def stage_crop():
     print("crop done")
 
 
+# ----------------------------------------------------------------------- qp ----
+
+QPS = [10, 20, 24, 28, 34, 40, 46, 51]     # constant quantiser, single keyframe, one thread (reproducible)
+QP_CLIPS = [20, 34, 46]
+QP_STILL = 600                         # frame index of the still shown in the module
+
+
+def stage_qp():
+    """Subject 10 encoded at fixed QP (CQP, one keyframe, threads=1). Per QP: size, PSNR over the face
+    region, POS heart-rate error, and how big the face-average brightness error is next to the pulse."""
+    import cv2
+    TMP.mkdir(exist_ok=True, parents=True)
+    (OUT / "qp").mkdir(exist_ok=True, parents=True)
+    d = np.load(NPZ_DIR / f"s{HERO}.npz")
+    box = d["box"].tolist()
+    fps, usable = float(d["fps"]), int(d["usable"])
+    ix0, iy0, ix1, iy1 = inner_box(box)
+    x0, y0 = tile_region(box)
+    W, H = NTX * TILE, NTY * TILE
+    src = DATA / f"subject{HERO}/vid.avi"
+    ref = E.bandpass(d["ref"], fps)
+    wn, hop = int(round(E.WIN_S * fps)), int(round(E.HOP_S * fps))
+    starts = list(range(0, usable - wn + 1, hop))
+    truth = [E.hr_bpm(ref[a:a + wn], fps) for a in starts]
+    g_src = d["rgb_source"][:, 1]
+    pulse_std = float(E.bandpass(g_src, fps).std())
+    rows = []
+    for qp in QPS:
+        raw = TMP / f"qp{qp}.mp4"
+        if not raw.exists():
+            run(["ffmpeg", "-y", "-v", "error", "-i", src, "-c:v", "libx264", "-qp", qp, "-g", "9999",
+                 "-x264-params", "threads=1:aq-mode=1", "-pix_fmt", "yuv420p", raw])
+        nbytes = raw.stat().st_size
+        tr, mse = [], []
+        for i, (a, b) in enumerate(zip(frames(src), frames(raw))):
+            tr.append(b[iy0:iy1, ix0:ix1].reshape(-1, 3).mean(axis=0))
+            ca = a[y0:y0 + H, x0:x0 + W].astype(np.float32)
+            cb = b[y0:y0 + H, x0:x0 + W].astype(np.float32)
+            mse.append(((ca - cb) ** 2).mean())
+            if i == QP_STILL:
+                cv2.imwrite(str(OUT / "qp" / f"still_qp{qp}.png"), cv2.cvtColor(b[y0:y0 + H, x0:x0 + W], cv2.COLOR_RGB2BGR))
+                if qp == QPS[0]:
+                    cv2.imwrite(str(OUT / "qp" / "still_src.png"), cv2.cvtColor(a[y0:y0 + H, x0:x0 + W], cv2.COLOR_RGB2BGR))
+        tr = np.array(tr)
+        n = min(len(tr), len(g_src))
+        psnr = float(np.mean(10 * np.log10(255 ** 2 / np.maximum(mse, 1e-9))))
+        bvp = E.pos(tr[:usable], fps)
+        est = [E.hr_bpm(bvp[a:a + wn], fps) for a in starts]
+        err = [abs(e - t) for e, t in zip(est, truth)]
+        err_std = float(E.bandpass(tr[:n, 1] - g_src[:n], fps).std())
+        rows.append(dict(qp=qp, bytes=nbytes, kbps=nbytes * 8 / (len(tr) / fps) / 1000, psnr=psnr,
+                         err_med=float(np.median(err)), err_bad=float(np.mean(np.array(err) > 5)),
+                         err_std=err_std, est=rnd(est, 2), bvp=rnd(bvp, 5)))
+        print(f"qp: {qp:2d}  {rows[-1]['kbps']:8.0f} kbps  psnr {psnr:5.1f}  med err {rows[-1]['err_med']:5.1f}  "
+              f"pulse std {pulse_std:.3f}  error std {err_std:.3f}", flush=True)
+        if qp in QP_CLIPS:
+            t = TMP / f"qpclip{qp}.mp4"
+            write_video(t, frames(raw, f"crop={W}:{H}:{x0}:{y0}", W, H), fps, W, H)
+            mp4_webm(t, f"qp{qp}")
+    out = dict(fps=fps, qps=QPS, clips=QP_CLIPS, w=W, h=H, still=QP_STILL, pulse_std=pulse_std,
+               starts=starts, wn=wn, truth=rnd(truth, 2), rows=rows)
+    (OUT / "qp" / "qp.json").write_text(json.dumps(out, separators=(",", ":")))
+    print("qp: written")
+
+
 # ------------------------------------------------------------------- golden ----
 
 def stage_golden():
@@ -368,7 +433,7 @@ def stage_golden():
 
 
 STAGES = dict(hero_traces=stage_hero_traces, subjects=stage_subjects, damage=stage_damage, windows=stage_windows, videos=stage_videos,
-              tiles=stage_tiles, magnify=stage_magnify, magnified=stage_magnified, diffs=stage_diffs, crop=stage_crop, golden=stage_golden)
+              tiles=stage_tiles, magnify=stage_magnify, magnified=stage_magnified, diffs=stage_diffs, crop=stage_crop, qp=stage_qp, golden=stage_golden)
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

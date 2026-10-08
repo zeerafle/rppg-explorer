@@ -1,0 +1,459 @@
+{
+ "source": "Proposal/experiments/deep-keyframe-2026-10-08",
+ "g1": {
+  "POS": {
+   "mae": 2.0,
+   "r": 0.941,
+   "gated": false,
+   "result": null
+  },
+  "CHROM": {
+   "mae": 1.72,
+   "r": 0.956,
+   "gated": false,
+   "result": null
+  },
+  "TSCAN": {
+   "mae": 1.7,
+   "r": 0.961,
+   "gated": true,
+   "result": "PASS"
+  },
+  "PHYSNET": {
+   "mae": 3.7,
+   "r": 0.859,
+   "gated": true,
+   "result": "PASS"
+  }
+ },
+ "results": {
+  "POS": {
+   "3200": {
+    "long": {
+     "err": 1.4,
+     "bad": 0.21,
+     "harm": null,
+     "chance": null
+    },
+    "g30": {
+     "err": 16.0,
+     "bad": 0.55,
+     "harm": 45.0,
+     "chance": 6.0,
+     "verdict": "Fooled"
+    },
+    "g60": {
+     "err": 2.1,
+     "bad": 0.33,
+     "harm": 26.0,
+     "chance": 11.0,
+     "verdict": "Immune"
+    },
+    "g120": {
+     "err": 1.6,
+     "bad": 0.26,
+     "harm": 23.0,
+     "chance": 19.0,
+     "verdict": "Immune"
+    },
+    "intra-refresh": {
+     "err": 1.7,
+     "bad": 0.27,
+     "harm": null,
+     "chance": null
+    }
+   },
+   "800": {
+    "long": {
+     "err": 2.6,
+     "bad": 0.41,
+     "harm": null,
+     "chance": null
+    },
+    "g30": {
+     "err": 36.9,
+     "bad": 0.83,
+     "harm": 75.0,
+     "chance": 6.0,
+     "verdict": "Fooled"
+    },
+    "g60": {
+     "err": 21.3,
+     "bad": 0.66,
+     "harm": 52.0,
+     "chance": 11.0,
+     "verdict": "Fooled"
+    },
+    "g120": {
+     "err": 13.9,
+     "bad": 0.59,
+     "harm": 37.0,
+     "chance": 19.0,
+     "verdict": "Partial"
+    },
+    "intra-refresh": {
+     "err": 10.8,
+     "bad": 0.54,
+     "harm": null,
+     "chance": null
+    }
+   },
+   "400": {
+    "long": {
+     "err": 8.7,
+     "bad": 0.53,
+     "harm": null,
+     "chance": null
+    },
+    "g30": {
+     "err": 38.0,
+     "bad": 0.9,
+     "harm": 80.0,
+     "chance": 6.0,
+     "verdict": "Fooled"
+    },
+    "g60": {
+     "err": 27.3,
+     "bad": 0.77,
+     "harm": 61.0,
+     "chance": 11.0,
+     "verdict": "Fooled"
+    },
+    "g120": {
+     "err": 26.6,
+     "bad": 0.72,
+     "harm": 44.0,
+     "chance": 19.0,
+     "verdict": "Fooled"
+    },
+    "intra-refresh": {
+     "err": 23.8,
+     "bad": 0.66,
+     "harm": null,
+     "chance": null
+    }
+   }
+  },
+  "CHROM": {
+   "3200": {
+    "long": {
+     "err": 1.2,
+     "bad": 0.13,
+     "harm": null,
+     "chance": null
+    },
+    "g30": {
+     "err": 1.9,
+     "bad": 0.33,
+     "harm": 27.0,
+     "chance": 6.0,
+     "verdict": "Immune"
+    },
+    "g60": {
+     "err": 1.3,
+     "bad": 0.19,
+     "harm": 19.0,
+     "chance": 11.0,
+     "verdict": "Immune"
+    },
+    "g120": {
+     "err": 1.3,
+     "bad": 0.17,
+     "harm": 23.0,
+     "chance": 19.0,
+     "verdict": "Immune"
+    },
+    "intra-refresh": {
+     "err": 1.3,
+     "bad": 0.19,
+     "harm": null,
+     "chance": null
+    }
+   },
+   "800": {
+    "long": {
+     "err": 1.8,
+     "bad": 0.29,
+     "harm": null,
+     "chance": null
+    },
+    "g30": {
+     "err": 33.2,
+     "bad": 0.79,
+     "harm": 69.0,
+     "chance": 6.0,
+     "verdict": "Fooled"
+    },
+    "g60": {
+     "err": 17.4,
+     "bad": 0.6,
+     "harm": 50.0,
+     "chance": 11.0,
+     "verdict": "Fooled"
+    },
+    "g120": {
+     "err": 3.2,
+     "bad": 0.42,
+     "harm": 34.0,
+     "chance": 19.0,
+     "verdict": "Immune"
+    },
+    "intra-refresh": {
+     "err": 3.1,
+     "bad": 0.44,
+     "harm": null,
+     "chance": null
+    }
+   },
+   "400": {
+    "long": {
+     "err": 3.1,
+     "bad": 0.44,
+     "harm": null,
+     "chance": null
+    },
+    "g30": {
+     "err": 38.3,
+     "bad": 0.9,
+     "harm": 83.0,
+     "chance": 6.0,
+     "verdict": "Fooled"
+    },
+    "g60": {
+     "err": 29.6,
+     "bad": 0.8,
+     "harm": 71.0,
+     "chance": 11.0,
+     "verdict": "Fooled"
+    },
+    "g120": {
+     "err": 26.2,
+     "bad": 0.71,
+     "harm": 57.0,
+     "chance": 19.0,
+     "verdict": "Fooled"
+    },
+    "intra-refresh": {
+     "err": 18.6,
+     "bad": 0.61,
+     "harm": null,
+     "chance": null
+    }
+   }
+  },
+  "TSCAN": {
+   "3200": {
+    "long": {
+     "err": 1.0,
+     "bad": 0.1,
+     "harm": null,
+     "chance": null
+    },
+    "g30": {
+     "err": 1.0,
+     "bad": 0.14,
+     "harm": 8.0,
+     "chance": 6.0,
+     "verdict": "Immune"
+    },
+    "g60": {
+     "err": 0.9,
+     "bad": 0.12,
+     "harm": 12.0,
+     "chance": 11.0,
+     "verdict": "Immune"
+    },
+    "g120": {
+     "err": 0.9,
+     "bad": 0.11,
+     "harm": 19.0,
+     "chance": 19.0,
+     "verdict": "Immune"
+    },
+    "intra-refresh": {
+     "err": 1.0,
+     "bad": 0.11,
+     "harm": null,
+     "chance": null
+    }
+   },
+   "800": {
+    "long": {
+     "err": 1.3,
+     "bad": 0.24,
+     "harm": null,
+     "chance": null
+    },
+    "g30": {
+     "err": 2.6,
+     "bad": 0.41,
+     "harm": 19.0,
+     "chance": 6.0,
+     "verdict": "Immune"
+    },
+    "g60": {
+     "err": 2.0,
+     "bad": 0.35,
+     "harm": 16.0,
+     "chance": 11.0,
+     "verdict": "Immune"
+    },
+    "g120": {
+     "err": 1.6,
+     "bad": 0.3,
+     "harm": 21.0,
+     "chance": 19.0,
+     "verdict": "Immune"
+    },
+    "intra-refresh": {
+     "err": 2.1,
+     "bad": 0.39,
+     "harm": null,
+     "chance": null
+    }
+   },
+   "400": {
+    "long": {
+     "err": 2.8,
+     "bad": 0.46,
+     "harm": null,
+     "chance": null
+    },
+    "g30": {
+     "err": 16.7,
+     "bad": 0.61,
+     "harm": 20.0,
+     "chance": 6.0,
+     "verdict": "Fooled"
+    },
+    "g60": {
+     "err": 11.0,
+     "bad": 0.55,
+     "harm": 17.0,
+     "chance": 11.0,
+     "verdict": "Partial"
+    },
+    "g120": {
+     "err": 3.5,
+     "bad": 0.48,
+     "harm": 20.0,
+     "chance": 19.0,
+     "verdict": "Immune"
+    },
+    "intra-refresh": {
+     "err": 15.1,
+     "bad": 0.61,
+     "harm": null,
+     "chance": null
+    }
+   }
+  },
+  "PHYSNET": {
+   "3200": {
+    "long": {
+     "err": 1.7,
+     "bad": 0.29,
+     "harm": null,
+     "chance": null
+    },
+    "g30": {
+     "err": 2.7,
+     "bad": 0.43,
+     "harm": 13.0,
+     "chance": 6.0,
+     "verdict": "Immune"
+    },
+    "g60": {
+     "err": 2.0,
+     "bad": 0.36,
+     "harm": 15.0,
+     "chance": 12.0,
+     "verdict": "Immune"
+    },
+    "g120": {
+     "err": 1.7,
+     "bad": 0.32,
+     "harm": 18.0,
+     "chance": 19.0,
+     "verdict": "Immune"
+    },
+    "intra-refresh": {
+     "err": 2.3,
+     "bad": 0.38,
+     "harm": null,
+     "chance": null
+    }
+   },
+   "800": {
+    "long": {
+     "err": 6.2,
+     "bad": 0.52,
+     "harm": null,
+     "chance": null
+    },
+    "g30": {
+     "err": 22.4,
+     "bad": 0.71,
+     "harm": 24.0,
+     "chance": 6.0,
+     "verdict": "No verdict"
+    },
+    "g60": {
+     "err": 22.8,
+     "bad": 0.7,
+     "harm": 18.0,
+     "chance": 12.0,
+     "verdict": "No verdict"
+    },
+    "g120": {
+     "err": 10.3,
+     "bad": 0.55,
+     "harm": 23.0,
+     "chance": 19.0,
+     "verdict": "No verdict"
+    },
+    "intra-refresh": {
+     "err": 18.5,
+     "bad": 0.64,
+     "harm": null,
+     "chance": null
+    }
+   },
+   "400": {
+    "long": {
+     "err": 22.5,
+     "bad": 0.7,
+     "harm": null,
+     "chance": null
+    },
+    "g30": {
+     "err": 22.4,
+     "bad": 0.78,
+     "harm": 24.0,
+     "chance": 6.0,
+     "verdict": "Immune"
+    },
+    "g60": {
+     "err": 23.7,
+     "bad": 0.75,
+     "harm": 20.0,
+     "chance": 12.0,
+     "verdict": "Immune"
+    },
+    "g120": {
+     "err": 25.0,
+     "bad": 0.74,
+     "harm": 23.0,
+     "chance": 19.0,
+     "verdict": "Immune"
+    },
+    "intra-refresh": {
+     "err": 25.7,
+     "bad": 0.79,
+     "harm": null,
+     "chance": null
+    }
+   }
+  }
+ }
+}

@@ -65,6 +65,9 @@ export const loadWindows = () =>
 /** Repeated re-encodes of subject 10 (data-build/encode_variance.py); null if that study has not been run. */
 export const loadEncodeVariance = () => once('encvar', () => json('hero/encode-variance.json').catch(() => null))
 
+/** Subject 10 at fixed QP (data-build stage `qp`). */
+export const loadQp = () => once('qp', () => json('qp/qp.json'))
+
 export const loadHeroMeta = () => once('view', () => json('hero/view.json'))
 
 export const loadTiles = () =>
