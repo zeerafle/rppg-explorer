@@ -17,7 +17,7 @@ for (let i = 1; i <= 8; i++) {
   if (i < 8) await page.getByRole('button', { name: 'Next', exact: true }).click()
 }
 
-for (const [id, steps, tag] of [['fit', 4, 'fit'], ['phase', 6, 'phase']]) {
+for (const [id, steps, tag] of [['fit', 5, 'fit'], ['phase', 6, 'phase']]) {
   await page.goto(`${BASE}#${id}`); await page.reload()
   await page.waitForSelector('main h1')
   for (let i = 1; i <= steps; i++) {

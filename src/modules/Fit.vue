@@ -1,8 +1,7 @@
 <script setup>
 // "Fitting a repeating pattern": the idea behind phase regression on a made-up signal you control.
-// Pulse + a keyframe pattern + noise, folded by phase, fitted with K sine/cosine pairs, subtracted.
+// Pulse + a keyframe pattern + noise: phase, fold, fit K sine/cosine pairs, subtract, read the heart rate.
 import { computed, ref } from 'vue'
-import CategoryBars from '../components/CategoryBars.vue'
 import LineChart from '../components/LineChart.vue'
 import PhaseClock from '../components/PhaseClock.vue'
 import Scatter from '../components/Scatter.vue'
@@ -85,14 +84,54 @@ const curve = (b, k) => Array.from({ length: GRID + 1 }, (_, g) => {
 const xs = Array.from({ length: GRID + 1 }, (_, g) => g / GRID)
 const truthCurve = computed(() => { const m = D.mean(art.value); return xs.map((p) => height.value * shape(p) - m) })
 const fitCurve = computed(() => curve(beta.value, K.value))
-const fitSeries = computed(() => [
-  { name: 'True keyframe pattern', color: ART, x: xs, y: truthCurve.value, dash: '5 3', width: 1.8 },
-  { name: `Fit with ${K.value} pair${K.value > 1 ? 's' : ''}`, color: FIT, x: xs, y: fitCurve.value, width: 2.6 },
-])
 const fitErr = computed(() => Math.sqrt(D.mean(Float64Array.from(fitCurve.value, (v, g) => (v - truthCurve.value[g]) ** 2))))
-const sizes = computed(() => Array.from({ length: K.value }, (_, j) => ({ label: `${j + 1}× (${(j + 1) * 60 * FS / period.value} bpm)`, value: Math.hypot(beta.value[2 * j], beta.value[2 * j + 1]), color: FIT })))
+// what step 2 measured, over all cycles: one average per position in the cycle
+const avgAll = computed(() => {
+  const P = period.value, s = new Float64Array(P), c = Math.floor(N / P)
+  for (let i = 0; i < c * P; i++) s[i % P] += sig.value[i]
+  return Array.from(s, (v) => v / c)
+})
+const avgPts = computed(() => avgAll.value.map((y, j) => ({ x: j / period.value, y, color: ART, r: 3.4, opacity: 0.9, title: `average at phase ${(j / period.value).toFixed(2)}: ${y.toFixed(2)}` })))
+const y3 = computed(() => { const m = Math.max(...avgAll.value.map(Math.abs), ...truthCurve.value.map(Math.abs)); const r = Math.ceil(m * 1.15 * 2) / 2 || 1; return [-r, r] })
+const showBuild = ref(false)
+const curves3 = computed(() => [
+  { x: xs, y: truthCurve.value, color: '#6b6a66', dash: '5 3', width: 1.8 },
+  ...(showBuild.value ? Array.from({ length: K.value - 1 }, (_, k) => ({ x: xs, y: curve(beta.value, k + 1), color: FIT, width: 1, opacity: 0.35 })) : []),
+  { x: xs, y: fitCurve.value, color: FIT, width: 2.8 },
+])
+const waveK = ref(2)
+const wk = computed(() => Math.min(waveK.value, K.value))
+const sinPart = computed(() => xs.map((p) => beta.value[2 * (wk.value - 1)] * Math.sin(2 * Math.PI * wk.value * p)))
+const cosPart = computed(() => xs.map((p) => beta.value[2 * (wk.value - 1) + 1] * Math.cos(2 * Math.PI * wk.value * p)))
+const waveSeries = computed(() => [
+  { name: 'a × sine', color: '#2a78d6', x: xs, y: sinPart.value, width: 1.6, dash: '4 3' },
+  { name: 'b × cosine', color: '#c13b7a', x: xs, y: cosPart.value, width: 1.6, dash: '4 3' },
+  { name: 'Their sum: this wave', color: FIT, x: xs, y: sinPart.value.map((v, i) => v + cosPart.value[i]), width: 2.8 },
+])
+const wkBpm = computed(() => (wk.value * 60 * FS) / period.value)
+const rows = computed(() => Array.from({ length: 12 }, (_, i) => {
+  const k = i + 1, bpm = (k * 60 * FS) / period.value, used = k <= K.value
+  return { k, bpm, used, w: used ? Math.hypot(beta.value[2 * i], beta.value[2 * i + 1]) : 0, band: bpm < 42 ? 'below' : bpm > 180 ? 'above' : 'in' }
+}))
+const wmax = computed(() => Math.max(...rows.value.map((r) => r.w), 1e-9))
+const covered = computed(() => teeth.value.filter((t) => t.k <= K.value).length)
 
-// ---- step 4: subtract ----
+// ---- step 4: subtract, in time ----
+const subCyc = ref(1)
+const s4 = computed(() => Math.min(subCyc.value, Math.max(0, maxCycles.value - 3)) * period.value)
+const L4 = computed(() => 3 * period.value)
+const subPick = ref(62)
+const fp = computed(() => Math.min(Math.max(subPick.value, s4.value), s4.value + L4.value - 1))
+const seg4 = (x) => x.subarray(s4.value, s4.value + L4.value)
+const line4 = (name, color, y, extra = {}) => ({ name, color, y: seg4(y), x0: s4.value / FS, dx: 1 / FS, width: 1.6, ...extra })
+const sub4 = computed(() => [line4('Face colour (made up)', '#6b6a66', sig.value), line4('Fitted pattern, repeated in every cycle', FIT, fitted.value, { width: 2.8 })])
+const sub4b = computed(() => [line4('Pulse + noise we started with', PUL, clean.value, { dash: '4 3', width: 1.4 }), line4('After subtracting the curve', FIT, after.value, { width: 2.2 })])
+const kmarks4 = computed(() => keyIdx.value.filter((i) => i >= s4.value && i < s4.value + L4.value).map((i) => ({ x: i / FS, color: ART, opacity: 0.55 })))
+const rms = (x) => Math.sqrt(D.mean(Float64Array.from(x, (v) => v * v)))
+const left4 = computed(() => ({ art: rms(artZ.value), left: rms(Float64Array.from({ length: N }, (_, i) => after.value[i] - clean.value[i])) }))
+const ex = computed(() => ({ f: fp.value, cyc: Math.floor(fp.value / period.value) + 1, pos: fp.value % period.value, ph: phase.value[fp.value], v: sig.value[fp.value], c: fitted.value[fp.value], r: after.value[fp.value], next: fp.value + period.value < N ? fitted.value[fp.value + period.value] : null }))
+
+// ---- step 5: heart rate ----
 const fitted = computed(() => { const f = new Float64Array(N); cols.value.forEach((c, j) => { for (let i = 0; i < N; i++) f[i] += beta.value[j] * c[i] }); return f })
 const after = computed(() => sig.value.map((v, i) => v - fitted.value[i]))
 const w4 = ref(2)
@@ -129,7 +168,7 @@ const lostSeries = computed(() => [{ name: 'Pulse power removed by the fit', col
 const lostHere = computed(() => lost.value[Math.max(0, Math.min(HRS.length - 1, Math.round((hr.value - 42) / 2)))])
 const marks4b = computed(() => [...teeth.value.map((t) => ({ x: t.bpm, color: ART, dash: '2 3', opacity: 0.55 })), { x: hr.value, label: 'this pulse', color: '#0b0b0b', dash: '5 2' }])
 
-const STEPS = ['Phase', 'Fold', 'Fit', 'Subtract']
+const STEPS = ['Phase', 'Fold', 'Fit a curve', 'Subtract', 'Heart rate']
 </script>
 
 <template>
@@ -184,26 +223,78 @@ const STEPS = ['Phase', 'Fold', 'Fit', 'Subtract']
       </div>
 
       <div v-else-if="index === 2" class="card">
-        <h3>3. Describe the average shape with a few waves</h3>
-        <p class="small muted">The fold gives the shape only at a few dozen points. We want a smooth formula for it, so we write it as a sum of sine and cosine waves that fit exactly once into a cycle (1×), twice (2×), and so on up to K×. The computer chooses how much of each wave to add so that the sum is as close as possible to the dots: <b>least squares</b>.</p>
-        <p><Tex block tex="y_t \;\approx\; \sum_{k=1}^{K} a_k \sin(2\pi k\,\varphi_t) + b_k \cos(2\pi k\,\varphi_t)" /></p>
-        <p class="small muted">In words: the colour at frame <i>t</i> is the sum of K sine-and-cosine pairs of its phase φ<sub>t</sub>. The weights a<sub>k</sub>, b<sub>k</sub> are found by minimising the squared gap to all {{ N }} frames at once. The thesis uses K = 6.</p>
-        <div class="controls"><label>Pairs of waves, K <input v-model.number="K" type="range" min="1" max="12" step="1" /> <b>{{ K }}</b></label></div>
-        <LineChart :series="fitSeries" :x-domain="[0, 1]" :height="250" x-label="Phase" y-label="Colour value" label="Fitted keyframe pattern" />
-        <div class="stats">
-          <div class="stat"><b>{{ fitErr.toFixed(2) }}</b><span>average gap between fit and true pattern</span></div>
-          <div class="stat"><b>{{ 2 * K }}</b><span>numbers the fit has to learn</span></div>
+        <h3>3. Replace the dots with one smooth curve</h3>
+        <p class="small muted"><b>Yes: this step finds the keyframe pattern.</b> The orange dots are what step 2 measured, the average colour at each of the {{ period }} positions in the cycle. They are a little jagged, because some pulse and noise survives the averaging. We want one smooth curve through them, written with a handful of numbers, because then the same curve can be used for <i>every</i> frame, including cycles a few frames longer or shorter than the rest.</p>
+        <div class="controls">
+          <label>Pairs of waves, K <input v-model.number="K" type="range" min="1" max="12" step="1" /> <b>{{ K }}</b></label>
+          <label><input v-model="showBuild" type="checkbox" /> Show it being built up wave by wave</label>
         </div>
-        <h4>How much of each wave</h4>
-        <CategoryBars :items="sizes" :decimals="2" />
+        <Scatter :points="avgPts" :curves="curves3" :diagonal="false" :x-domain="[0, 1]" :y-domain="y3" :height="290" x-label="Phase (0 = keyframe, 1 = next keyframe)" y-label="Colour value (0 = average of the cycle)" label="Averages by phase with the fitted curve" />
+        <p class="small muted">Orange dots: the averages from step 2. <b style="color: var(--green)">Green</b>: the fitted curve. Dashed grey: the pattern we secretly put into this toy signal, so you can check the fit. A real recording gives you no dashed line.</p>
+        <div class="stats">
+          <div class="stat"><b>{{ fitErr.toFixed(2) }}</b><span>average gap between green and dashed</span></div>
+          <div class="stat"><b>{{ 2 * K }}</b><span>numbers describe the curve</span></div>
+        </div>
+        <div class="callout">
+          <strong>Why does it start high and fall below 0?</strong> Only because of how we built this toy: a jump at the keyframe that fades over the cycle, copied from what the real data show in <a href="#keyframe">module 6, step 2</a>. The vertical scale has 0 at the average colour of the whole cycle, so "below 0" just means darker than average. On a real recording we assume no shape at all: the curve is whatever the dots say (<a href="#phase">module 8, step 2</a>).
+        </div>
+
+        <h4>Why sines and cosines?</h4>
+        <ul class="small muted">
+          <li>The pattern repeats every cycle, so it can be built from waves that fit a whole number of times into one cycle: once (1×), twice (2×), and so on. That is the "ramp built from sine waves" idea from <a href="#keyframe">module 6, step 3</a>.</li>
+          <li>A sine wave is always 0 at the keyframe, so alone it can never put a peak there. Adding a cosine of the same speed, which starts at its maximum, lets the pair peak anywhere in the cycle.</li>
+          <li>Each pair is "a × sine + b × cosine", so the computer only has to choose two weights per speed. It picks all of them at once to make the curve as close as possible to the dots in the least-squares sense: the smallest total squared gap.</li>
+        </ul>
+        <p><Tex block tex="y_t \;\approx\; \sum_{k=1}^{K} a_k \sin(2\pi k\,\varphi_t) + b_k \cos(2\pi k\,\varphi_t)" /></p>
+        <p class="small muted">In words: the pattern's value at phase φ is the sum of K pairs of waves. The green curve above is all {{ K }} pairs added together. Look at one pair:</p>
+        <div class="controls"><label>Wave number <input v-model.number="waveK" type="range" min="1" :max="K" step="1" /> <b>{{ wk }}×</b></label></div>
+        <LineChart :series="waveSeries" :x-domain="[0, 1]" :height="200" x-label="Phase" y-label="Contribution" label="One sine and cosine pair" />
+        <p class="small muted">Wave {{ wk }}× fits {{ wk }} time{{ wk > 1 ? 's' : '' }} into the cycle, which is {{ wkBpm.toFixed(0) }} bpm. The fit chose a = {{ beta[2 * (wk - 1)].toFixed(2) }} for the sine and b = {{ beta[2 * (wk - 1) + 1].toFixed(2) }} for the cosine.</p>
+
+        <h4>Why K = 6?</h4>
+        <p class="small muted">Wave k runs at exactly k × the keyframe rate, which are the keyframe teeth from <a href="#keyframe">module 6</a>. Here is each wave for the current spacing, and whether it lands in the heart-rate band that POS searches:</p>
+        <table class="t">
+          <thead><tr><th>Wave</th><th>Speed (bpm)</th><th>In the 42–180 bpm band?</th><th>Weight</th></tr></thead>
+          <tbody>
+            <tr v-for="r in rows" :key="r.k" :style="{ opacity: r.used ? 1 : 0.38 }">
+              <td>{{ r.k }}×</td><td>{{ r.bpm.toFixed(0) }}</td>
+              <td>{{ r.band === 'in' ? '✅ a keyframe tooth' : r.band === 'below' ? 'below: slow drift' : 'above' }}</td>
+              <td><template v-if="r.used"><span class="wbar" :style="{ width: (r.w / wmax) * 90 + 'px' }" /> {{ r.w.toFixed(2) }}</template><template v-else>not used</template></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="stats">
+          <div class="stat" :style="{ borderLeft: `4px solid ${covered === teeth.length ? 'var(--green)' : 'var(--red)'}` }"><b>{{ covered }} of {{ teeth.length }}</b><span>keyframe teeth in the band that have a wave (K = {{ K }})</span></div>
+        </div>
         <div class="callout warn">
-          <strong>Too few, too many.</strong> K = 1 is a smooth hump and misses the sharp jump at phase 0. A few more waves capture it. Raise K and the gap shrinks until the extra waves mostly follow noise (watch the curve wiggle around the dashed line). Fewer numbers to learn also means less chance of fitting something that is not the artefact.
+          <strong>Honest answer: K = 6 is a setting, not a derived number.</strong> The thesis code uses 6 for every keyframe spacing and never compared other values. What the table suggests (our reading, not yet tested): at 2 s, wave 6× is 180 bpm, exactly the top of the band, so 6 is just enough to give every tooth a wave. At 1 s only waves 1 to 3 reach the band. At 4 s six waves stop at 90 bpm, so the teeth at 105 to 180 bpm have no wave; try the 4 s button above with K = 6. Too few waves miss the sharp jump at phase 0; many more start to follow noise, and every extra wave also gives the fit more freedom to swallow part of the pulse (step 5).
+        </div>
+      </div>
+
+      <div v-else-if="index === 3" class="card">
+        <h3>4. Use the curve to clean every frame</h3>
+        <p class="small muted"><b>What is removed is the keyframe artefact's share of each frame.</b> Every frame has a phase, and the curve tells us how much the keyframe pushed the colour at that phase. So for every frame: look up its phase, read the curve there, subtract. Three cycles of the made-up signal, with keyframes marked in orange:</p>
+        <div class="controls"><label>Start at cycle <input v-model.number="subCyc" type="range" min="0" :max="Math.max(0, maxCycles - 3)" step="1" /> <b>{{ s4 / period + 1 }}</b></label></div>
+        <LineChart :series="sub4" :markers="kmarks4" :playhead="fp / FS" scrub :x-domain="[s4 / FS, (s4 + L4) / FS]" :height="190" x-label="Time (s)" y-label="Colour value" label="Signal and the fitted pattern repeated in every cycle" @scrub="(x) => (subPick = Math.round(x * FS))" />
+        <p class="small muted">Grey: the face colour. <b style="color: var(--green)">Green</b>: the fitted curve from step 3, copied into every cycle because every cycle has the same phases. Drag on the chart to pick a frame.</p>
+        <div class="callout">
+          <strong>Frame {{ ex.f }}, worked through.</strong> It is {{ ex.pos }} frame{{ ex.pos === 1 ? '' : 's' }} after the keyframe of cycle {{ ex.cyc }}, in a {{ period }}-frame cycle, so its phase is {{ ex.pos }} ÷ {{ period }} = <b>{{ ex.ph.toFixed(3) }}</b>. The curve at that phase reads <b>{{ ex.c.toFixed(2) }}</b>: that much of this frame's colour is the keyframe artefact. Its colour value is {{ ex.v.toFixed(2) }}, so after subtracting it is {{ ex.v.toFixed(2) }} − ({{ ex.c.toFixed(2) }}) = <b>{{ ex.r.toFixed(2) }}</b>.<template v-if="ex.next !== null"> The same position in the next cycle has the same phase and loses the same amount ({{ ex.next.toFixed(2) }}), even though its colour value is different.</template>
+        </div>
+        <h4>What is left</h4>
+        <LineChart :series="sub4b" :markers="kmarks4" :x-domain="[s4 / FS, (s4 + L4) / FS]" :height="190" x-label="Time (s)" y-label="Colour value" label="Signal after subtracting the curve, against pulse plus noise" />
+        <p class="small muted">Green after the subtraction; dashed blue, the pulse and noise we put into the toy before adding any keyframe pattern. The orange jumps are gone and the two mostly agree; the gap that remains is the part of the pattern the curve missed (try raising K in step 3).</p>
+        <div class="stats">
+          <div class="stat"><b>{{ left4.art.toFixed(2) }}</b><span>size of the keyframe pattern (rms)</span></div>
+          <div class="stat" :style="{ borderLeft: `4px solid ${left4.left < 0.5 * left4.art ? 'var(--green)' : 'var(--red)'}` }"><b>{{ left4.left.toFixed(2) }}</b><span>what is left of it after subtracting (rms)</span></div>
+        </div>
+        <div class="callout warn">
+          <strong>Not removed.</strong> What remains is the pulse and the noise, plus whatever part of the pattern the curve missed. The fit has no way to know which wiggles are "artefact" and which are "pulse"; it only knows what repeats in step with the keyframes. Step 5 shows when that goes wrong.
         </div>
       </div>
 
       <div v-else class="card">
-        <h3>4. Subtract the fit, and the one thing that can go wrong</h3>
-        <p class="small muted">Take the fitted pattern away from every frame. The repeating jumps go, and the heartbeat is left. One 10 s window of the made-up signal, as the heart-rate algorithm sees it:</p>
+        <h3>5. Read the heart rate, and the one thing that can go wrong</h3>
+        <p class="small muted">The heart-rate algorithm takes the spectrum of 10 s of the cleaned signal and picks the tallest peak. Before and after the subtraction of step 4:</p>
         <div class="controls"><label>Window <input v-model.number="w4" type="range" min="0" :max="Math.floor((N - WN) / (5 * FS))" step="1" /> {{ a4 / FS }} to {{ a4 / FS + 10 }} s</label></div>
         <LineChart :series="spec4" :markers="marks4" :x-domain="[42, 180]" :y-domain="[0, 1.12]" :height="250" x-label="Heart rate (bpm)" y-label="Power (shared scale)" label="Spectrum before and after subtracting the fit" />
         <div class="stats">
@@ -220,7 +311,7 @@ const STEPS = ['Phase', 'Fold', 'Fit', 'Subtract']
           <div class="stat" :style="{ borderLeft: `4px solid ${lostHere > 20 ? 'var(--red)' : 'var(--green)'}` }"><b>{{ lostHere.toFixed(0) }} %</b><span>of a {{ hr }} bpm pulse removed</span></div>
         </div>
         <div class="callout warn">
-          <strong>Our reading, not yet tested on real data.</strong> Almost everywhere the fit leaves the pulse alone (near 0 %). At the teeth it removes most of it. On the made-up signal that is exact; on real recordings it predicts why 1 s keyframes (teeth every 30 bpm, so many heart rates sit near one) are harder than 2 s keyframes. Drag the pulse slider onto a dotted line and watch the "after" spectrum lose its peak in the step above.
+          <strong>Our reading, not yet tested on real data.</strong> Almost everywhere the fit leaves the pulse alone (near 0 %). At the teeth it removes most of it. On the made-up signal that is exact; on real recordings it predicts why 1 s keyframes (teeth every 30 bpm, so many heart rates sit near one) are harder than 2 s keyframes. Drag the pulse slider onto a dotted line and watch the "after" spectrum lose its peak in the first chart.
         </div>
       </div>
     </template>
@@ -232,4 +323,5 @@ const STEPS = ['Phase', 'Fold', 'Fit', 'Subtract']
 @media (max-height: 820px) { .sticky { position: static; } }
 .row { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
 .row > .small { flex: 1; min-width: 220px; }
+.wbar { display: inline-block; height: 10px; background: var(--green); border-radius: 3px; vertical-align: middle; }
 </style>

@@ -78,6 +78,15 @@ const truth4 = computed(() => refHr.value[wi.value])
 const pk = computed(() => ({ a: D.peakBpm(sA.value), f: D.peakBpm(sF.value), l: D.peakBpm(sL.value) }))
 const marks4 = computed(() => [...teeth.value.map((t) => ({ x: t.bpm, color: MODE_COLOR[mode.value], dash: '2 3', opacity: 0.5 })), { x: truth4.value, label: `truth ${truth4.value.toFixed(0)}`, color: '#0b0b0b', dash: '5 2' }])
 const good = (v) => (Math.abs(v - truth4.value) < 5 ? 'var(--green)' : 'var(--red)')
+const T4 = 8
+const ser4 = computed(() => {
+  const a = a0.value, n8 = Math.round(T4 * fps.value), yb = reg.value.yb[1], f = reg.value.fit[1]
+  const seg = (x) => Float64Array.from(x.subarray(a, a + n8), (v) => v * 100)
+  const corr = Float64Array.from({ length: n8 }, (_, i) => (yb[a + i] - f[a + i]) * 100)
+  const mk = (name, color, y, extra = {}) => ({ name, color, y, x0: a / fps.value, dx: 1 / fps.value, width: 1.6, ...extra })
+  return [mk('Green as decoded (band-passed)', ASIS, seg(yb), { opacity: 0.75 }), mk('Fitted pattern: what is removed from each frame', '#c13b7a', seg(f), { width: 2.6 }), mk('Left after subtracting', FIX, corr, { width: 2.2 })]
+})
+const kmarks4 = computed(() => cond.value.isI.map((i) => ({ x: i / fps.value, color: MODE_COLOR[mode.value], opacity: 0.5 })))
 
 // ---- step 5 ----
 const xs5 = computed(() => wins.value.starts.map((s) => (s + wins.value.wn / 2) / fps.value))
@@ -161,7 +170,9 @@ const STEPS = ['The phase', 'Fold and fit', 'How many waves', 'Subtract', 'Whole
 
       <div v-else-if="index === 3" class="card">
         <h3>4. Subtract, run POS, read the spectrum</h3>
-        <p class="small muted">One 10 s window. Grey dashed: the same video encoded with a single keyframe, where there is nothing to remove. Orange: decoded as-is. Green: after subtracting the fit. Dotted lines are the keyframe teeth.</p>
+        <p class="small muted"><b>What gets subtracted.</b> For every frame the fit reads its curve at that frame's phase and removes that amount from the colour (green channel shown; red and blue get their own fit). The first chart shows the first 8 s of the window below, with keyframes ticked.</p>
+        <LineChart :series="ser4" :markers="kmarks4" :x-domain="[a0 / fps, a0 / fps + T4]" :height="210" x-label="Time (s)" y-label="Colour change (%)" label="Green channel, the fitted pattern and what is left" />
+        <p class="small muted">Orange: what the decoder produced. Magenta: the fitted pattern, which repeats every cycle and is what we remove. Green: the difference, which is the pulse and noise plus whatever the fit missed. Now the spectrum of the 10 s window, with and without the subtraction. Grey dashed: the same video encoded with a single keyframe, where there is nothing to remove. Orange: decoded as-is. Green: after subtracting the fit. Dotted lines are the keyframe teeth.</p>
         <div class="controls"><label>Window <input v-model.number="win" type="range" min="0" :max="wins.starts.length - 1" step="1" /> {{ (a0 / fps).toFixed(0) }} to {{ ((a0 + wins.wn) / fps).toFixed(0) }} s</label></div>
         <LineChart :series="spec4" :markers="marks4" :x-domain="[42, 180]" :y-domain="[0, 1.12]" :height="260" x-label="Heart rate (bpm)" y-label="Power (shared scale)" label="Spectra with and without the correction" />
         <div class="stats">

@@ -8,6 +8,7 @@ const props = defineProps({
   xDomain: { type: Array, default: () => [40, 180] },
   yDomain: { type: Array, default: () => [40, 180] },
   hlines: { type: Array, default: () => [] },   // {y,label?,color?}
+  curves: { type: Array, default: () => [] },   // {x[],y[],color?,dash?,width?,opacity?} drawn as lines over the dots
   diagonal: { type: Boolean, default: true },
   height: { type: Number, default: 300 },
   xLabel: String, yLabel: String, label: { type: String, default: 'scatter' },
@@ -20,6 +21,7 @@ const m = { top: 10, right: 12, bottom: 38, left: 52 }
 const iw = computed(() => width.value - m.left - m.right), ih = computed(() => props.height - m.top - m.bottom)
 const sx = computed(() => scaleLinear().domain(props.xDomain).range([0, iw.value]))
 const sy = computed(() => scaleLinear().domain(props.yDomain).range([ih.value, 0]))
+const path = (c) => c.x.map((xv, i) => `${i ? 'L' : 'M'}${sx.value(xv).toFixed(1)},${sy.value(Math.min(Math.max(c.y[i], props.yDomain[0]), props.yDomain[1])).toFixed(1)}`).join('')
 </script>
 <template>
   <div ref="el">
@@ -38,6 +40,7 @@ const sy = computed(() => scaleLinear().domain(props.yDomain).range([ih.value, 0
           <text v-if="h.label" :x="iw - 3" :y="sy(h.y) - 3" text-anchor="end" class="hl" :fill="h.color || 'var(--accent)'">{{ h.label }}</text>
         </g>
         <circle v-for="(p, i) in points" :key="i" :cx="sx(p.x)" :cy="sy(Math.min(Math.max(p.y, yDomain[0]), yDomain[1]))" :r="p.r ?? 3.6" :fill="p.color || 'var(--accent)'" :fill-opacity="p.opacity ?? 0.7" :stroke="p.stroke ?? 'var(--bg)'" :stroke-width="p.stroke ? 2 : 0.8"><title v-if="p.title">{{ p.title }}</title></circle>
+        <path v-for="(c, i) in curves" :key="'c' + i" :d="path(c)" fill="none" :stroke="c.color || 'var(--accent)'" :stroke-width="c.width ?? 2.4" :stroke-dasharray="c.dash" :opacity="c.opacity ?? 1" stroke-linejoin="round" />
         <line :x1="0" :x2="iw" :y1="ih" :y2="ih" stroke="var(--ink-3)" />
       </g>
     </svg>
