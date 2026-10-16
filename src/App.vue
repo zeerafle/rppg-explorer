@@ -15,8 +15,10 @@ const MODULES = [
   { id: 'codec', n: 5, group: 'Compression', title: 'What compression does', hint: 'Keyframes, quantisation, bitrate', c: defineAsyncComponent(() => import('./modules/Codec.vue')) },
   { id: 'quant', n: '5b', title: 'The quantiser, on real pictures', hint: 'What QP does to pixels, size and the pulse', c: defineAsyncComponent(() => import('./modules/Quantiser.vue')) },
   { id: 'keyframe', n: 6, title: 'The keyframe artefact', hint: 'Step by step: why the heart rate reads 60', c: defineAsyncComponent(() => import('./modules/Keyframe.vue')) },
-  { id: 'results', n: 7, group: 'Wrap-up', title: 'What we found', hint: 'Results, nulls and open questions', c: defineAsyncComponent(() => import('./modules/Results.vue')) },
-  { id: 'lab', n: 8, title: 'Lab', hint: 'Play with every knob at once', c: defineAsyncComponent(() => import('./modules/Lab.vue')) },
+  { id: 'fit', n: 7, group: 'Correction', title: 'Fitting a repeating pattern', hint: 'Fold by phase, sum of waves, least squares', c: defineAsyncComponent(() => import('./modules/Fit.vue')) },
+  { id: 'phase', n: 8, title: 'Undoing it: phase regression', hint: 'Fit the keyframe shape on real video and subtract it', c: defineAsyncComponent(() => import('./modules/Phase.vue')) },
+  { id: 'results', n: 9, group: 'Wrap-up', title: 'What we found', hint: 'Results, nulls and open questions', c: defineAsyncComponent(() => import('./modules/Results.vue')) },
+  { id: 'lab', n: 10, title: 'Lab', hint: 'Play with every knob at once', c: defineAsyncComponent(() => import('./modules/Lab.vue')) },
 ]
 
 const safe = (fn, d) => { try { return fn() } catch { return d } }
@@ -118,7 +120,7 @@ main { padding: 26px clamp(16px, 4vw, 48px) 60px; max-width: 1060px; width: 100%
 }
 .pager { display: flex; justify-content: space-between; gap: 10px; margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); }
 @media (max-width: 860px) {
-  .shell { grid-template-columns: 1fr; }
+  .shell { grid-template-columns: minmax(0, 1fr); }
   .burger { display: inline-block; }
   .nav { display: none; position: fixed; inset: 49px 0 0 0; background: var(--bg); z-index: 4; max-height: none; border-right: 0; }
   .nav.open { display: block; }

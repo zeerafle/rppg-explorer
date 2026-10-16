@@ -303,3 +303,69 @@ export function filterBand(x, fs, lo, hi) {
   if (hi > 0 && hi < fs / 2) { const f = biquad('lp', hi, fs); y = filtfilt(f.b, f.a, y) }
   return y
 }
+
+// ------------------------------------------------- phase regression (B4) ----
+// Ported from rppg-f0/rppg.py (phase_basis, regress_out); tests/phase.test.js checks it against Python.
+
+export const K_PHASE = 6
+
+/** Position of each frame inside its keyframe cycle: 0 at the keyframe, rising towards 1 just before the next.
+ *  NaN before the first keyframe; null if there are fewer than three keyframes. */
+export function gopPhase(isIdx, n) {
+  if (isIdx.length < 3) return null
+  const ph = new Float64Array(n).fill(NaN)
+  const bounds = [...isIdx, n + (n - isIdx[isIdx.length - 1])]
+  for (let b = 0; b < isIdx.length; b++) {
+    const s = bounds[b], L = Math.max(bounds[b + 1] - s, 1)
+    for (let i = s; i < Math.min(bounds[b + 1], n); i++) ph[i] = (i - s) / L
+  }
+  return ph
+}
+
+/** Fourier basis of the phase: columns sin(2πk·ph), cos(2πk·ph) for k = 1..K (NaN rows become 0). */
+export function phaseBasis(ph, K = K_PHASE) {
+  const cols = []
+  for (let k = 1; k <= K; k++) {
+    const s = new Float64Array(ph.length), c = new Float64Array(ph.length)
+    for (let i = 0; i < ph.length; i++) {
+      if (Number.isNaN(ph[i])) continue
+      s[i] = Math.sin(2 * Math.PI * k * ph[i]); c[i] = Math.cos(2 * Math.PI * k * ph[i])
+    }
+    cols.push(s, c)
+  }
+  return cols
+}
+
+/** Least squares y ≈ Σ beta_j cols[j] via the normal equations (small, well-conditioned systems only). */
+export function lstsq(cols, y) {
+  const m = cols.length, n = y.length
+  const A = Array.from({ length: m }, () => new Array(m).fill(0)), B = new Array(m).fill(0)
+  for (let i = 0; i < m; i++) {
+    for (let j = i; j < m; j++) { let s = 0; for (let t = 0; t < n; t++) s += cols[i][t] * cols[j][t]; A[i][j] = A[j][i] = s }
+    let s = 0; for (let t = 0; t < n; t++) s += cols[i][t] * y[t]; B[i] = s
+  }
+  return solve(A, B)
+}
+
+/** Per channel: relative trace (c / clip mean − 1), band-passed; subtract the least-squares fit on band-passed
+ *  regressors; rebuild an RGB trace. rgb is flat (n,3). Returns the corrected flat trace plus, per channel,
+ *  the band-passed trace `yb`, the fit `fit` and the weights `beta` (for plotting). */
+export function regressOut(rgb, cols, ba) {
+  const n = rgb.length / 3
+  const Xb = cols.map((c) => bandpass(c, ba))
+  const out = new Float64Array(rgb.length), yb = [], fit = [], beta = []
+  for (let c = 0; c < 3; c++) {
+    const y = new Float64Array(n)
+    let m = 0
+    for (let i = 0; i < n; i++) m += rgb[i * 3 + c]
+    m /= n
+    for (let i = 0; i < n; i++) y[i] = rgb[i * 3 + c] / m - 1
+    const ybc = bandpass(y, ba)
+    const bt = lstsq(Xb, ybc)
+    const f = new Float64Array(n)
+    for (let j = 0; j < Xb.length; j++) for (let i = 0; i < n; i++) f[i] += bt[j] * Xb[j][i]
+    for (let i = 0; i < n; i++) out[i * 3 + c] = m * (1 + y[i] - f[i])
+    yb.push(ybc); fit.push(f); beta.push(bt)
+  }
+  return { out, yb, fit, beta }
+}

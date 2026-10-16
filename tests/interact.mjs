@@ -17,6 +17,16 @@ for (let i = 1; i <= 8; i++) {
   if (i < 8) await page.getByRole('button', { name: 'Next', exact: true }).click()
 }
 
+for (const [id, steps, tag] of [['fit', 4, 'fit'], ['phase', 6, 'phase']]) {
+  await page.goto(`${BASE}#${id}`); await page.reload()
+  await page.waitForSelector('main h1')
+  for (let i = 1; i <= steps; i++) {
+    await page.waitForTimeout(1500)
+    await page.locator('.stepper').screenshot({ path: new URL(`./shots/${tag}-step${i}.png`, import.meta.url).pathname })
+    if (i < steps) await page.getByRole('button', { name: 'Next', exact: true }).click()
+  }
+}
+
 await page.goto(`${BASE}#trace`); await page.reload()
 await page.waitForSelector('main h1')
 await page.waitForTimeout(2000)

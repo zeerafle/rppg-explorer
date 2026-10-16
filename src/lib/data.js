@@ -147,3 +147,20 @@ export function tileMap(tiles, s) {
     return { corr: out, traces }
   })
 }
+
+// ---- phase regression (data-build stage `phase`: deterministic CBR 800k encodes, rc-control-2026-10-14) ----
+
+/** Showcase subjects: clean win, big win, works at 2 s only, hard subject. */
+export const PHASE_SUBJECTS = [8, 38, 33, 11]
+export const PHASE_NOTE = { 8: 'clean win', 38: 'big win', 33: 'works at 2 s, fails at 1 s', 11: 'hard subject' }
+
+export const loadPhaseSubject = (sid) =>
+  once(`ps${sid}`, async () => {
+    const o = await json(`phase/s${sid}.json`)
+    const conds = {}
+    for (const [k, c] of Object.entries(o.conds)) conds[k] = { rgb: Float64Array.from(c.rgb), isI: c.isI ?? [] }
+    return { ...o, ref: Float64Array.from(o.ref), conds }
+  })
+
+/** 42-subject summary of every simple correction at CBR 800k (median/MAE/near/far per method and spacing). */
+export const loadPhaseSummary = () => once('phase-summary', () => json('phase/summary.json'))

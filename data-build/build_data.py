@@ -432,8 +432,75 @@ def stage_golden():
     print("golden: written")
 
 
+# -------------------------------------------------------------------- phase ----
+
+PHASE_SUBJECTS = [8, 38, 33, 11]       # clean win, big win, works at 2 s only, hard subject
+RC = THESIS / "rc-control-2026-10-14"
+F0 = pathlib.Path.home() / "Projects/rppg-f0"
+
+
+def stage_phase():
+    """Deterministic CBR 800k encodes (rc-control, 42 subjects) for the phase-regression modules:
+    four showcase subjects' traces + the 42-subject summary of every simple correction."""
+    sys.path.insert(0, str(F0))
+    import rppg as R
+    (OUT / "phase").mkdir(parents=True, exist_ok=True)
+    for sid in PHASE_SUBJECTS:
+        d = np.load(RC / "data" / f"s{sid}.npz")
+        fps, usable = float(d["fps"]), int(d["usable"])
+        b, a = butter(3, R.BAND, btype="bandpass", fs=fps)
+        conds = {"source": {"rgb": rnd(d["rgb_source"].ravel(), 4)}}
+        for m in ["long", "g30", "g60", "g120"]:
+            conds[m] = {"rgb": rnd(d[f"rgb_cbr800_{m}"].ravel(), 4),
+                        "isI": np.flatnonzero(d[f"isI_cbr800_{m}"]).tolist()}
+        obj = dict(sid=sid, fps=fps, n=len(d["rgb_source"]), usable=usable, ref=rnd(d["ref"], 4),
+                   ba=dict(b=b.tolist(), a=a.tolist()), conds=conds)
+        (OUT / "phase" / f"s{sid}.json").write_text(json.dumps(obj, separators=(",", ":")))
+        print(f"phase: s{sid}")
+    w = pd.read_csv(RC / "windows.csv.gz")
+    w = w[w.rc == "cbr800"]
+    methods = ["none", "detrend", "step", "notch", "phase", "nlms"]
+    table = {}
+    for mode in ["g30", "g60", "g120"]:
+        table[mode] = {}
+        for me in methods:
+            x = w[(w["mode"] == mode) & (w.method == me)]
+            nr, fr = x[x.near], x[~x.near]
+            table[mode][me] = dict(med=float(x.err.median()), mae=float(x.err.mean()),
+                                   near=float(nr.err.median()), far=float(fr.err.median()),
+                                   near_share=float(x.near.mean()), n=int(len(x)))
+    x = w[(w["mode"] == "long") & (w.method == "none")]
+    table["long"] = dict(med=float(x.err.median()), mae=float(x.err.mean()), n=int(len(x)))
+    per = {}
+    for sid, g in w.groupby("subject"):
+        row = {}
+        for mode in ["g30", "g60", "g120"]:
+            row[mode] = [float(g[(g["mode"] == mode) & (g.method == me)].err.median()) for me in ("none", "phase")]
+        row["long"] = float(g[(g["mode"] == "long") & (g.method == "none")].err.median())
+        per[int(sid)] = row
+    (OUT / "phase" / "summary.json").write_text(json.dumps(dict(table=table, per=per, subjects=len(per)), separators=(",", ":")))
+    print("phase: summary", len(per), "subjects")
+
+    # golden for the JS port: Python phase_basis + regress_out + POS on the *shipped* subject 8, g60
+    s = json.loads((OUT / "phase" / "s8.json").read_text())
+    fps, usable = s["fps"], s["usable"]
+    rgb = np.array(s["conds"]["g60"]["rgb"]).reshape(-1, 3)
+    isI = np.zeros(len(rgb), bool)
+    isI[s["conds"]["g60"]["isI"]] = True
+    X = R.phase_basis(isI)
+    fixed = R.regress_out(rgb, X, fps)
+    bvp = R.pos(fixed[:usable], fps)
+    wn, hop = int(round(R.WIN_S * fps)), int(round(R.HOP_S * fps))
+    starts = list(range(0, usable - wn + 1, hop))
+    out = dict(fps=fps, usable=usable, K=R.K_PHASE, X_head=X[:70].tolist(), fixed_head=fixed[:30].tolist(),
+               fixed_tail=fixed[-30:].tolist(), pos_std=float(bvp.std()), starts=starts,
+               hr=[R.hr_bpm(bvp[s0:s0 + wn], fps) for s0 in starts])
+    (ROOT / "tests/golden-phase.json").write_text(json.dumps(out))
+    print("phase: golden")
+
+
 STAGES = dict(hero_traces=stage_hero_traces, subjects=stage_subjects, damage=stage_damage, windows=stage_windows, videos=stage_videos,
-              tiles=stage_tiles, magnify=stage_magnify, magnified=stage_magnified, diffs=stage_diffs, crop=stage_crop, qp=stage_qp, golden=stage_golden)
+              tiles=stage_tiles, magnify=stage_magnify, magnified=stage_magnified, diffs=stage_diffs, crop=stage_crop, qp=stage_qp, golden=stage_golden, phase=stage_phase)
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

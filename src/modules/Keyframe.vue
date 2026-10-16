@@ -159,20 +159,6 @@ const points = computed(() => SUBJECTS.flatMap((id) => {
 
 // ---------- step 7: undoing it ----------
 const fixOn = ref(true)
-const hrPhase = (s, m) => {
-  const { wn, starts } = windows(s)
-  const b = s.conds[m].bvpPhase
-  return starts.map((a) => D.hrBpm(b.subarray(a, a + wn), s.fps))
-}
-const fixed = SPACING.map((m) => {
-  const before = [], after = []
-  for (const id of SUBJECTS) {
-    const rf = refHr(subs[id])
-    hrTrack(subs[id], m).forEach((v, i) => before.push(Math.abs(v - rf[i])))
-    hrPhase(subs[id], m).forEach((v, i) => after.push(Math.abs(v - rf[i])))
-  }
-  return { m, before: median(before), after: median(after) }
-})
 const specFix = computed(() => {
   const b = sub.value.conds[mode.value].bvpPhase
   return D.spectrum(b.subarray(a0.value, a0.value + wins.value.wn), fps.value)
@@ -182,10 +168,6 @@ const win7 = computed(() => {
   const mk = (sp, name, color, extra = {}) => ({ name, color, x: Array.from(sp.f, (v) => v * 60), y: Array.from(sp.p, (v) => v / mx), width: 2, ...extra })
   return [mk(specMode.value, 'Decoded as-is', MODE_COLOR[mode.value], { opacity: fixOn.value ? 0.4 : 1 }), ...(fixOn.value ? [mk(specFix.value, 'After removing the keyframe pattern', '#1baf7a', { width: 2.4 })] : [])]
 })
-const fixBars = fixed.flatMap((f) => [
-  { label: `${MODE_LABEL[f.m]}: as-is`, value: f.before, color: MODE_COLOR[f.m] },
-  { label: `${MODE_LABEL[f.m]}: corrected`, value: f.after, color: '#1baf7a' },
-])
 
 // ---------- step 8: 42 subjects ----------
 const k800 = [['source', 'Uncompressed', MODE_COLOR.source], ['800k-aq1-long', 'One keyframe', MODE_COLOR.long], ['800k-aq1-intra-refresh', 'Intra-refresh', MODE_COLOR['intra-refresh']], ['800k-aq1-g60', 'Keyframe every 2 s', MODE_COLOR.g60]].map(([c, label, color]) => {
@@ -206,7 +188,7 @@ const deepBars = computed(() => DM.flatMap(([m, label, color]) => {
   ]
 }))
 
-const STEPS = ['Same video', 'Colour jumps', 'A comb', 'Comb wins', 'Whole minute', 'Moves with spacing', 'Undo it?', '42 subjects']
+const STEPS = ['Same video', 'Colour jumps', 'A comb', 'Comb wins', 'Whole minute', 'Moves with spacing', 'Undo it', '42 subjects']
 </script>
 
 <template>
@@ -327,16 +309,14 @@ const STEPS = ['Same video', 'Colour jumps', 'A comb', 'Comb wins', 'Whole minut
       <!-- 7 ------------------------------------------------------------------------------>
       <div v-else-if="index === 6" class="card">
         <h3>7. The decoder knows where the keyframes are. Can it undo the pattern?</h3>
-        <p class="small muted">Yes, partly. The stream announces every frame's type, so the receiver knows each frame's position inside the keyframe cycle. It fits the sawtooth from step 2 as a function of that position, subtracts it from each colour channel, and runs POS again. <span class="tag real">real data</span></p>
+        <p class="small muted">Yes, largely. The stream announces every frame's type, so the receiver knows each frame's position inside the keyframe cycle. It fits the sawtooth from step 2 as a function of that position, subtracts it from each colour channel, and runs POS again. <span class="tag real">real data</span></p>
         <div class="controls">
           <label><input v-model="fixOn" type="checkbox" /> Show corrected</label>
           <label>Window <input v-model.number="win" type="range" min="0" :max="nWin - 1" step="1" /> {{ (a0 / fps).toFixed(0) }} s</label>
         </div>
         <LineChart :series="win7" :x-domain="[42, 180]" :y-domain="[0, 1.12]" :markers="[{ x: truthBpm, label: `truth ${truthBpm.toFixed(0)}`, color: '#0b0b0b', dash: '5 2' }]" :height="240" x-label="Heart rate (bpm)" y-label="Power" label="Spectrum before and after correction" />
-        <h3>Across all five subjects</h3>
-        <CategoryBars :items="fixBars" unit=" bpm" :ref-line="{ value: longMed + 2, label: 'pre-set bar: one keyframe + 2 bpm' }" />
-        <div class="callout warn">
-          <strong>It helps but does not fix it.</strong> The correction cuts the error roughly in half, yet stays far from the one-keyframe level. We had decided in advance that "it works" means landing within 2 bpm of one-keyframe error, and it never does. The error that remains is partly ordinary compression damage (some subjects fail even with one keyframe) and partly structure the simple fit cannot remove. Intra-refresh, the common real-time setting, has no keyframe cycle to fit, and the one bitstream-based attempt we tried on it (using QP) did nothing.
+        <div class="callout">
+          <strong>On 42 subjects it nearly solves it.</strong> With deterministic encodes at CBR 800 kbps and keyframes every 2 s, <i>phase regression</i> takes the median error from 21.3 to 3.5 bpm (2.6 with no keyframes). It does not fix everything: 1 s keyframes near a tooth, five hard subjects and intra-refresh stay broken. <a href="#fit">Module 7</a> builds the method from scratch on a toy signal and <a href="#phase">module 8</a> runs it live on real subjects and the full 42. The five-subject chart that used to be here came from non-reproducible encodes and understated the fix.
         </div>
       </div>
 
@@ -367,7 +347,7 @@ const STEPS = ['Same video', 'Colour jumps', 'A comb', 'Comb wins', 'Whole minut
           <tbody>
             <tr><td>Error grows as keyframes get closer</td><td>42 subjects (2 s vs single keyframe) + 5 subjects (1, 2, 4 s)</td></tr>
             <tr><td>The wrong answers sit on multiples of the keyframe rate</td><td>5 subjects only</td></tr>
-            <tr><td>A decoder-side correction halves the error</td><td>5 subjects; did not meet the bar we set</td></tr>
+            <tr><td>A decoder-side correction (phase regression) cuts 2 s error from 21.3 to 3.5 bpm</td><td>42 subjects, deterministic encodes; fails at 1 s near a tooth, on 5 hard subjects and on intra-refresh</td></tr>
             <tr><td>CHROM is fooled like POS; TS-CAN is not at 800 kbps (breaks at 400 kbps with 1 s keyframes); PhysNet is too fragile to test</td><td>42 subjects, deterministic encodes, PURE-trained networks</td></tr>
             <tr><td>Other codecs, other datasets, other deep models</td><td>Not tested yet</td></tr>
           </tbody>
