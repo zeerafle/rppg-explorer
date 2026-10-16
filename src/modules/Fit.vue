@@ -42,24 +42,35 @@ const w1 = computed(() => [{ name: 'Face colour (made up)', color: '#6b6a66', y:
 const w1p = computed(() => [{ name: 'Phase', color: ART, y: phase.value.subarray(0, 12 * FS), x0: 0, dx: 1 / FS, width: 2, step: true }])
 
 // ---- step 2: fold ----
-const cycles = ref(3)
+// One dot per frame: x = its phase (how far through its cycle it is), y = its colour value.
+// Frame j of every cycle has the same phase j/period, so those frames land in one vertical column.
+const cycles = ref(1)
 const maxCycles = computed(() => Math.floor(N / period.value))
 const showClean = ref(false)
-const BINS = 40
-const pts = computed(() => {
-  const src = showClean.value ? clean.value : sig.value
-  const last = Math.min(N, cycles.value * period.value)
+const span = computed(() => Math.min(N, cycles.value * period.value))
+const pick = ref(Math.round(0.25 * 60))
+const pk = computed(() => Math.min(pick.value, span.value - 1))
+const pkCycle = computed(() => Math.floor(pk.value / period.value))
+const pkPos = computed(() => pk.value % period.value)
+const src2 = computed(() => (showClean.value ? clean.value : sig.value))
+const hue = (c) => `hsl(${(170 + c * 67) % 360} 50% 50%)`
+const avg = computed(() => {
+  const s = new Float64Array(period.value)
+  for (let i = 0; i < span.value; i++) s[i % period.value] += src2.value[i]
+  return Array.from(s, (v) => v / cycles.value)
+})
+const foldPts = computed(() => {
   const out = []
-  for (let i = 0; i < last; i++) out.push({ x: phase.value[i], y: src[i], color: GREY })
+  for (let i = 0; i < span.value; i++) {
+    const c = Math.floor(i / period.value)
+    out.push({ x: phase.value[i], y: src2.value[i], color: hue(c), opacity: 0.55, title: `frame ${i} (cycle ${c + 1}), phase ${phase.value[i].toFixed(2)}, value ${src2.value[i].toFixed(2)}` })
+  }
+  avg.value.forEach((y, j) => out.push({ x: j / period.value, y, color: showClean.value ? PUL : ART, r: 4.2, opacity: 1, title: `average of the ${cycles.value} frame(s) at phase ${(j / period.value).toFixed(2)}: ${y.toFixed(2)}` }))
+  out.push({ x: phase.value[pk.value], y: src2.value[pk.value], color: hue(pkCycle.value), r: 8, opacity: 1, stroke: 'var(--ink)', title: `frame ${pk.value}` })
   return out
 })
-const binMean = (src, last) => {
-  const s = new Float64Array(BINS), c = new Float64Array(BINS)
-  for (let i = 0; i < last; i++) { const b = Math.min(BINS - 1, Math.floor(phase.value[i] * BINS)); s[b] += src[i]; c[b]++ }
-  return Array.from(s, (v, b) => (c[b] ? v / c[b] : 0))
-}
-const binPts = computed(() => binMean(showClean.value ? clean.value : sig.value, Math.min(N, cycles.value * period.value)).map((y, b) => ({ x: (b + 0.5) / BINS, y, color: showClean.value ? PUL : ART, title: `phase ${((b + 0.5) / BINS).toFixed(2)}, average ${y.toFixed(2)}` })))
-const foldPts = computed(() => [...pts.value, ...binPts.value])
+const time2 = computed(() => [{ name: showClean.value ? 'Pulse + noise only' : 'Face colour (made up)', color: '#6b6a66', y: src2.value.subarray(0, span.value), x0: 0, dx: 1 / FS, width: 1.6 }])
+const bands2 = computed(() => Array.from({ length: cycles.value }, (_, c) => ({ x0: (c * period.value) / FS, x1: ((c + 1) * period.value) / FS, color: hue(c), label: cycles.value <= 6 ? `cycle ${c + 1}` : undefined })))
 const ys = computed(() => { const m = Math.max(...sig.value.map(Math.abs)); return [-Math.ceil(m), Math.ceil(m)] })
 
 // ---- step 3: fit K sine/cosine pairs ----
@@ -148,16 +159,28 @@ const STEPS = ['Phase', 'Fold', 'Fit', 'Subtract']
       </div>
 
       <div v-else-if="index === 1" class="card">
-        <h3>2. Fold: stack every cycle on top of the others</h3>
-        <p class="small muted">Each dot is one frame, placed by its phase (left to right = through the cycle) and its colour value. Alone, one cycle looks like noise. Add cycles and the average per phase (coloured dots) settles onto the repeating pattern, because the pulse and noise point up as often as down.</p>
+        <h3>2. Fold: turn every frame into a dot, then stack the cycles</h3>
+        <p class="small muted">Reminder from step 1: phase is not an on/off switch. It is a <b>ramp</b>: 0 on the keyframe, then {{ (1 / period).toFixed(3) }}, {{ (2 / period).toFixed(3) }}, … one small step per frame, reaching {{ ((period - 1) / period).toFixed(2) }} on the last frame before the next keyframe. So the phase says <i>how far through its cycle</i> a frame is.</p>
+
+        <h4>a. Pick a frame in time</h4>
+        <p class="small muted">The first {{ cycles }} cycle{{ cycles > 1 ? 's' : '' }} of the signal, each shaded in its own colour. Drag on the chart to pick a frame.</p>
+        <LineChart :series="time2" :bands="bands2" :playhead="pk / FS" scrub :x-domain="[0, span / FS]" :height="170" x-label="Time (s)" y-label="Colour value" :legend="false" label="The cycles in time" @scrub="(x) => (pick = Math.max(0, Math.round(x * FS)))" />
+        <div class="callout">
+          <strong>How frame {{ pk }} becomes one dot.</strong> It is at {{ (pk / FS).toFixed(2) }} s, in cycle {{ pkCycle + 1 }}. The last keyframe was frame {{ pkCycle * period }}, so it is {{ pkPos }} frames into a {{ period }}-frame cycle: phase = {{ pkPos }} ÷ {{ period }} = <b>{{ (pkPos / period).toFixed(3) }}</b>. Its colour value is <b>{{ src2[pk].toFixed(2) }}</b>. So it is drawn at <b>x = {{ (pkPos / period).toFixed(3) }}, y = {{ src2[pk].toFixed(2) }}</b> (the big ringed dot below). Do this for every frame: x = phase, y = colour.
+        </div>
+
+        <h4>b. Every frame as a dot, placed by its phase</h4>
+        <p class="small muted">Left to right is no longer time, it is the position inside the cycle. One cycle of {{ period }} frames gives {{ period }} dots spread from 0 to 1, the same shape as the shaded stretch above. A second cycle drops its {{ period }} dots on the <i>same</i> x positions, because its frame number {{ pkPos }} also has phase {{ (pkPos / period).toFixed(3) }}. That is the "stacking": the cycles are cut at the keyframes and laid on top of each other. Dot colour = which cycle it came from.</p>
         <div class="controls">
           <label>Cycles stacked <input v-model.number="cycles" type="range" min="1" :max="maxCycles" step="1" /> <b>{{ cycles }}</b> of {{ maxCycles }}</label>
           <label><input v-model="showClean" type="checkbox" /> Remove the keyframe pattern (pulse + noise only)</label>
         </div>
-        <Scatter :points="foldPts" :diagonal="false" :x-domain="[0, 1]" :y-domain="ys" :height="300" x-label="Phase (0 = keyframe, 1 = next keyframe)" y-label="Colour value (made up)" label="Frames folded by phase" />
-        <div class="callout">
-          <strong>Try it.</strong> With 1 cycle the average is jagged. With all {{ maxCycles }} it is smooth. Tick the box and the average goes flat: with no repeating pattern there is nothing for the fold to find. The <i>pulse</i> is not locked to the keyframes, so it cancels; this is why the heartbeat survives the fit. (When the pulse <i>is</i> locked to them, it does not cancel. Step 4.)
-        </div>
+        <Scatter :points="foldPts" :diagonal="false" :x-domain="[0, 1]" :y-domain="ys" :height="300" x-label="Phase (0 = keyframe, 1 = next keyframe)" y-label="Colour value" label="Frames folded by phase" />
+
+        <h4>c. The average at each phase</h4>
+        <p class="small muted">The {{ showClean ? 'blue' : 'orange' }} dots: at each of the {{ period }} phase positions, the average of the frames stacked there. Each one averages <b>{{ cycles }}</b> frame{{ cycles > 1 ? 's' : '' }}.</p>
+        <div v-if="cycles === 1" class="callout warn"><strong>With 1 cycle there is nothing to average yet.</strong> Each phase position holds exactly one frame, and the average of one number is that number, so the {{ showClean ? 'blue' : 'orange' }} dots sit right on the frame dots. It is just the first cycle, pulse and noise included. Move the slider to 2 and each position now averages two frames.</div>
+        <div v-else class="callout"><strong>Why the pattern appears.</strong> The keyframe pattern has the same value at the same phase in every cycle, so averaging keeps it. The pulse is at {{ hr }} bpm, not in step with the {{ period / FS }} s cycle, so at a given phase it is up in some cycles and down in others, and averaging cancels it; so does the noise. With {{ cycles }} cycles the {{ showClean ? 'blue' : 'orange' }} dots are already {{ cycles >= 10 ? 'a smooth curve' : 'smoothing out' }}. Tick the box: with no pattern, the average goes flat.</div>
       </div>
 
       <div v-else-if="index === 2" class="card">

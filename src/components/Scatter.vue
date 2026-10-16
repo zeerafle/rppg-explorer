@@ -4,7 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { scaleLinear } from 'd3-scale'
 
 const props = defineProps({
-  points: { type: Array, default: () => [] },   // {x,y,color?,title?}
+  points: { type: Array, default: () => [] },   // {x,y,color?,title?,r?,opacity?,stroke?}
   xDomain: { type: Array, default: () => [40, 180] },
   yDomain: { type: Array, default: () => [40, 180] },
   hlines: { type: Array, default: () => [] },   // {y,label?,color?}
@@ -37,7 +37,7 @@ const sy = computed(() => scaleLinear().domain(props.yDomain).range([ih.value, 0
           <line :x1="0" :x2="iw" :y1="sy(h.y)" :y2="sy(h.y)" :stroke="h.color || 'var(--accent)'" stroke-width="1" stroke-dasharray="2 3" opacity="0.8" />
           <text v-if="h.label" :x="iw - 3" :y="sy(h.y) - 3" text-anchor="end" class="hl" :fill="h.color || 'var(--accent)'">{{ h.label }}</text>
         </g>
-        <circle v-for="(p, i) in points" :key="i" :cx="sx(p.x)" :cy="sy(Math.min(Math.max(p.y, yDomain[0]), yDomain[1]))" r="3.6" :fill="p.color || 'var(--accent)'" fill-opacity="0.7" stroke="var(--bg)" stroke-width="0.8"><title v-if="p.title">{{ p.title }}</title></circle>
+        <circle v-for="(p, i) in points" :key="i" :cx="sx(p.x)" :cy="sy(Math.min(Math.max(p.y, yDomain[0]), yDomain[1]))" :r="p.r ?? 3.6" :fill="p.color || 'var(--accent)'" :fill-opacity="p.opacity ?? 0.7" :stroke="p.stroke ?? 'var(--bg)'" :stroke-width="p.stroke ? 2 : 0.8"><title v-if="p.title">{{ p.title }}</title></circle>
         <line :x1="0" :x2="iw" :y1="ih" :y2="ih" stroke="var(--ink-3)" />
       </g>
     </svg>
